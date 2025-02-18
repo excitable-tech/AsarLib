@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using AsarLib.Json;
 
@@ -10,18 +8,18 @@ namespace AsarLib
     {
         public class FileEntry
         {
-            public FileData Data;
+            public FileData? Data;
 
             public bool? Executable;
 
-            public Dictionary<string, FileEntry> Files;
+            public Dictionary<string, FileEntry>? Files;
 
-            public string Link;
+            public string? Link;
             public FileType Type;
 
             public bool? Unpacked;
 
-            private FileEntry Initialize(Filesystem filesystem, long? offset, long? size, FileIntegrity integrity)
+            private FileEntry Initialize(Filesystem filesystem, long? offset, long? size, FileIntegrity? integrity)
             {
                 if (Link != null)
                 {
@@ -66,7 +64,7 @@ namespace AsarLib
             {
                 long? size = null;
                 long? offset = null;
-                FileIntegrity integrity = null;
+                FileIntegrity? integrity = null;
 
                 var entry = new FileEntry();
                 while (true)
@@ -75,7 +73,7 @@ namespace AsarLib
                         case "files":
                             entry.Files = new Dictionary<string, FileEntry>();
 
-                            string name;
+                            string? name;
                             while ((name = reader.TakePropertyName()) != null)
                                 entry.Files.Add(name, Deserialize(filesystem, reader));
                             break;

@@ -4,8 +4,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using static AsarLib.Json.ConstantTables;
 
-#nullable disable
-
 namespace AsarLib.Json
 {
     public unsafe class JsonReader : IDisposable
@@ -119,7 +117,7 @@ namespace AsarLib.Json
             }
         }
 
-        public string TakePropertyName()
+        public string? TakePropertyName()
         {
             while (_ptr < _end)
             {

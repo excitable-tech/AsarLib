@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -11,10 +9,11 @@ namespace AsarLib
     public partial class Filesystem : IDisposable
     {
         private readonly object _lock = new object();
-        private readonly BinaryReader _reader;
+        private readonly BinaryReader? _reader;
         private readonly FileEntry _root;
 
-        private readonly Stream _stream;
+        private readonly Stream? _stream;
+        public readonly string? IntegrityHash;
 
         private uint _dataOffset;
 
@@ -31,10 +30,10 @@ namespace AsarLib
         {
             _stream = stream;
             _reader = new BinaryReader(stream, Encoding.UTF8, true);
-            _root = ReadHeader();
+            _root = ReadHeader(out IntegrityHash);
         }
 
-        public Dictionary<string, FileEntry> Files => _root.Files;
+        public Dictionary<string, FileEntry> Files => _root.Files!;
 
         public void Dispose()
         {
@@ -42,9 +41,9 @@ namespace AsarLib
             _stream?.Dispose();
         }
 
-        private FileEntry ReadHeader()
+        private FileEntry ReadHeader(out string integrityHash)
         {
-            if (_reader.ReadUInt32() != 4u)
+            if (_reader!.ReadUInt32() != 4u)
                 throw new InvalidDataException("Invalid header format");
 
             var headerSize = _reader.ReadUInt32();
@@ -59,7 +58,10 @@ namespace AsarLib
 
             _dataOffset = headerSize + 8;
 
-            using (var reader = new JsonReader(_reader.ReadBytes(stringSize)))
+            var header = _reader.ReadBytes(stringSize);
+            integrityHash = FileIntegrity.ComputeHash(header, 0, header.Length);
+
+            using (var reader = new JsonReader(header))
             {
                 return FileEntry.Deserialize(this, reader);
             }
@@ -70,13 +72,14 @@ namespace AsarLib
             switch (entry.Type)
             {
                 case FileType.Directory:
-                    foreach (var file in entry.Files)
-                        WriteRawFilesystem(stream, file.Value);
+                    if (entry.Files != null)
+                        foreach (var file in entry.Files)
+                            WriteRawFilesystem(stream, file.Value);
                     break;
                 case FileType.File:
                     if (entry.Unpacked != true)
                     {
-                        var bytes = entry.Data.GetBytes();
+                        var bytes = entry.Data?.GetBytes();
                         if (bytes != null)
                             stream.Write(bytes, 0, bytes.Length);
                     }
@@ -89,12 +92,13 @@ namespace AsarLib
             }
         }
 
-        public void Save(Stream stream)
+        public void Save(Stream stream, out string integrityHash)
         {
             using (var json = new JsonWriter())
             {
                 var offset = 0L;
                 _root.Serialize(json, ref offset);
+                integrityHash = FileIntegrity.ComputeHash(json.Buffer, 0, json.Length);
                 using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
                 {
                     var length = json.Length;

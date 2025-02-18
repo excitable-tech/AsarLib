@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Security.Cryptography;
 using AsarLib.Json;
 
@@ -15,13 +13,13 @@ namespace AsarLib
             private static readonly SHA256 Sha256 = SHA256.Create();
             private static readonly object Lock = new object();
 
-            public string Algorithm;
+            public string? Algorithm;
 
-            public List<string> Blocks;
+            public List<string>? Blocks;
 
             public long BlockSize;
 
-            public string Hash;
+            public string? Hash;
 
             public JsonWriter Serialize(JsonWriter writer)
             {
@@ -35,9 +33,18 @@ namespace AsarLib
 
                 writer.WritePropertyKey("blockSize").WriteLong(BlockSize).WriteSymbol(JsonSymbol.Comma)
                     .WritePropertyKey("blocks").WriteSymbol(JsonSymbol.OpenSquare);
-                foreach (var block in Blocks)
-                    writer.WriteString(block).WriteSymbol(JsonSymbol.Comma);
-                if (Blocks.Count > 0) writer.RemoveEndBytes(1);
+
+                if (Blocks != null)
+                {
+                    foreach (var block in Blocks)
+                        writer.WriteString(block).WriteSymbol(JsonSymbol.Comma);
+                    if (Blocks.Count > 0) writer.RemoveEndBytes(1);
+                }
+                else
+                {
+                    writer.WriteSymbol(JsonSymbol.Null).WriteSymbol(JsonSymbol.Comma);
+                }
+
                 return writer.WriteSymbol(JsonSymbol.CloseSquare).WriteSymbol(JsonSymbol.CloseCurly);
             }
 
@@ -75,42 +82,15 @@ namespace AsarLib
                 var blocks = new List<string>(content.Length / IntegrityBlockSize +
                                               (content.Length % IntegrityBlockSize != 0 ? 1 : 0));
 
-                byte[] hash;
                 while (content.Length - offset > IntegrityBlockSize)
                 {
-                    lock (Lock)
-                    {
-                        hash = Sha256.ComputeHash(content, offset, IntegrityBlockSize);
-                    }
-
-                    blocks.Add(ToHex(hash));
+                    blocks.Add(ComputeHash(content, offset, IntegrityBlockSize));
                     offset += IntegrityBlockSize;
                 }
 
-                if (content.Length - offset > 0)
-                {
-                    lock (Lock)
-                    {
-                        hash = Sha256.ComputeHash(content, offset, content.Length - offset);
-                    }
+                if (content.Length - offset > 0) blocks.Add(ComputeHash(content, offset, content.Length - offset));
 
-                    blocks.Add(ToHex(hash));
-                }
-
-                string hashString;
-                if (blocks.Count > 1)
-                {
-                    lock (Lock)
-                    {
-                        hash = Sha256.ComputeHash(content);
-                    }
-
-                    hashString = ToHex(hash);
-                }
-                else
-                {
-                    hashString = blocks[0];
-                }
+                var hashString = blocks.Count > 1 ? ComputeHash(content, 0, content.Length) : blocks[0];
 
                 return new FileIntegrity
                 {
@@ -121,20 +101,26 @@ namespace AsarLib
                 };
             }
 
-            private static string ToHex(byte[] bytes)
+            public static string ComputeHash(byte[] buffer, int offset, int count)
             {
-                var c = new char[bytes.Length * 2];
+                byte[] bytes;
 
+                lock (Lock)
+                {
+                    bytes = Sha256.ComputeHash(buffer, offset, count);
+                }
+
+                var chars = new char[bytes.Length * 2];
                 for (int bx = 0, cx = 0; bx < bytes.Length; ++bx, ++cx)
                 {
                     var b = (byte)(bytes[bx] >> 4);
-                    c[cx] = (char)(b > 9 ? b - 10 + 'a' : b + '0');
+                    chars[cx] = (char)(b > 9 ? b - 10 + 'a' : b + '0');
 
                     b = (byte)(bytes[bx] & 0x0F);
-                    c[++cx] = (char)(b > 9 ? b - 10 + 'a' : b + '0');
+                    chars[++cx] = (char)(b > 9 ? b - 10 + 'a' : b + '0');
                 }
 
-                return new string(c);
+                return new string(chars);
             }
         }
     }

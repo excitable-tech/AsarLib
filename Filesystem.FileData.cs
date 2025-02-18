@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using AsarLib.Json;
@@ -11,16 +9,16 @@ namespace AsarLib
     {
         public class FileData
         {
-            private readonly Filesystem _filesystem;
+            private readonly Filesystem? _filesystem;
             private readonly long? _offset;
             private readonly long _size;
 
-            private byte[] _data;
+            private byte[]? _data;
             public bool? Executable;
-            public FileIntegrity Integrity;
+            public FileIntegrity? Integrity;
 
             public FileData(string data, bool? executable = null, bool useIntegrity = true) : this(
-                Encoding.UTF8.GetBytes(data), executable, useIntegrity)
+                Encoding.UTF8.GetBytes(data ?? throw new ArgumentNullException(nameof(data))), executable, useIntegrity)
             {
             }
 
@@ -32,7 +30,7 @@ namespace AsarLib
                     Integrity = FileIntegrity.CalculateIntegrity(data);
             }
 
-            internal FileData(Filesystem filesystem, long? offset, long? size, FileIntegrity integrity)
+            internal FileData(Filesystem? filesystem, long? offset, long? size, FileIntegrity? integrity)
             {
                 _filesystem = filesystem ?? throw new ArgumentNullException(nameof(filesystem));
                 _size = size ?? throw new ArgumentNullException(nameof(size));
@@ -41,27 +39,28 @@ namespace AsarLib
                 Integrity = integrity;
             }
 
-            public byte[] GetBytes()
+            public byte[]? GetBytes()
             {
                 if (_data != null) return _data;
                 if (_offset == null) throw new ArgumentNullException(nameof(_offset));
 
-                if (_offset.Value >= _filesystem._stream.Length)
+                if (_offset.Value >= _filesystem!._stream!.Length)
                     return null;
 
                 lock (_filesystem._lock)
                 {
                     var position = _filesystem._stream.Position;
                     _filesystem._stream.Seek(_offset.Value, SeekOrigin.Begin);
-                    var bytes = _filesystem._reader.ReadBytes((int)_size);
+                    var bytes = _filesystem._reader!.ReadBytes((int)_size);
                     _filesystem._stream.Seek(position, SeekOrigin.Begin);
                     return bytes;
                 }
             }
 
-            public string GetString()
+            public string? GetString()
             {
-                return Encoding.UTF8.GetString(GetBytes());
+                var bytes = GetBytes();
+                return bytes == null ? null : Encoding.UTF8.GetString(bytes);
             }
 
             public long GetSize()
@@ -80,6 +79,8 @@ namespace AsarLib
 
             public void Override(string data)
             {
+                if (_data != null) throw new ArgumentNullException(nameof(data));
+
                 Override(Encoding.UTF8.GetBytes(data));
             }
 
@@ -99,7 +100,7 @@ namespace AsarLib
                 }
                 else if (_offset != null && _filesystem != null)
                 {
-                    if (_offset >= _filesystem._stream.Length)
+                    if (_offset >= _filesystem._stream!.Length)
                     {
                         writer.WritePropertyKey("offset").WriteLong(_offset.Value - _filesystem._dataOffset, true)
                             .WriteSymbol(JsonSymbol.Comma);
