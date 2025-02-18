@@ -52,6 +52,17 @@ using (var fs = new Filesystem(File.OpenRead("app.asar")))
 }
 ```
 
+### Read/Modify Fuse
+```C#
+using (var stream = File.Open("app.exe", FileMode.Open, FileAccess.ReadWrite))
+{
+    var electron = new ElectronExecutable(stream);
+    Console.WriteLine(electron.OnlyLoadAppFromAsar);
+    electron.EnableEmbeddedAsarIntegrityValidation = ElectronExecutable.FuseState.Removed;
+    electron.Save();
+}
+```
+
 # 🤝 Contributing
 Pull requests welcome!
 
