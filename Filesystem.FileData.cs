@@ -70,8 +70,6 @@ namespace AsarLib
 
             public void Override(byte[] data)
             {
-                if (_data != null) throw new ArgumentNullException(nameof(data));
-
                 _data = data;
                 if (Integrity != null)
                     Integrity = FileIntegrity.CalculateIntegrity(data);
@@ -79,8 +77,6 @@ namespace AsarLib
 
             public void Override(string data)
             {
-                if (_data != null) throw new ArgumentNullException(nameof(data));
-
                 Override(Encoding.UTF8.GetBytes(data));
             }
 
